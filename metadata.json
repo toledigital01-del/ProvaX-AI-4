@@ -1,0 +1,6 @@
+{
+  "name": "ProvaX AI",
+  "description": "Plataforma de estudos inteligente para concorrentes do concurso da Polícia Rodoviária Federal (PRF), com plano de estudos personalizado e mentoria de IA pela Athena.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
