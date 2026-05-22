@@ -71,6 +71,11 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
     
     // Report metric to parent progress
     onQuestionAnswered(isCorrect, currentQuestion.discipline);
+
+    // Automatically schedule a Spaced Repetition card for this incorrect question
+    if (!isCorrect) {
+      addQuestionToSpacedRepetition(currentQuestion);
+    }
   };
 
   const handleNextQuestion = () => {
@@ -107,24 +112,123 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
     }
   };
 
-  // ==================== MODE 2: REVISÃO INTELIGENTE ====================
-  const [revisaoCards, setRevisaoCards] = useState<string[]>([
-    'Artigo 144 CF (Polícia Rodoviária Federal é mantida pela União e destina-se ao patrulhamento ostensivo das rodovias federais)',
-    'Artigo 306 do CTB (Capacidade psicomotora alterada por álcool acima de 0,34 mg/Ar ou 6dg/Sangue)',
-    'Resolução CONTRAN 432: regulamenta bafômetro, margem de erro tolerada do INMETRO',
-    'Artigo 5º inc. XI CF: Inviolabilidade domiciliar. Determinação judicial só permite invasão alheia durante o DIA',
-    'Artigo 165-A do CTB: Recusa do condutor ao teste gera infração gravíssima com mesma multa multiplicada por 10 e suspensão autónoma'
-  ]);
-  const [completeRevisaoStep, setCompleteRevisaoStep] = useState<boolean[]>(new Array(5).fill(false));
+  // ==================== MODE 2: REVISÃO INTELIGENTE (ALGORITMO REAL 1/3/7/21 DIAS) ====================
+  interface SpacedRepetitionItem {
+    id: string;
+    discipline: string;
+    topic: string;
+    details: string;
+    intervalDays: number; // 1 | 3 | 7 | 21
+    nextReviewDate: string; // YYYY-MM-DD
+  }
 
-  const handleResolveRevisao = (idx: number) => {
-    const updated = [...completeRevisaoStep];
-    updated[idx] = !updated[idx];
-    setCompleteRevisaoStep(updated);
-    
-    if (updated[idx]) {
-      onQuestionAnswered(true, 'Legislação de Trânsito');
+  const [revisaoItems, setRevisaoItems] = useState<SpacedRepetitionItem[]>(() => {
+    const saved = localStorage.getItem('prf_spaced_repetition_items');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error(e);
+      }
     }
+    // Default high-yield PRF topics with varied default intervals
+    return [
+      {
+        id: 'sr_1',
+        discipline: 'Direito Constitucional',
+        topic: 'Segurança Pública & Atribuições da PRF (Art. 144 CF)',
+        details: 'A Polícia Rodoviária Federal, órgão permanente, organizado e mantido pela União e estruturado em carreira, destina-se, na forma da lei, ao patrulhamento ostensivo das rodovias federais. É responsável direta pelo combate a ilícitos transfronteiriços.',
+        intervalDays: 1,
+        nextReviewDate: new Date().toISOString().split('T')[0],
+      },
+      {
+        id: 'sr_2',
+        discipline: 'Legislação de Trânsito',
+        topic: 'Concentração Alcoólica & Infração vs Crime (Art. 306 CTB)',
+        details: 'Infração de trânsito regulada pelo Art. 165 CTB ocorre com qualquer teor de álcool por litro de sangue. O crime do Art. 306 ocorre a partir de 0,3mg/L de ar alveolar ou 6dg/L de sangue. A recusa ao teste também gera multa de natureza gravíssima multiplicada por 10 e suspensão.',
+        intervalDays: 3,
+        nextReviewDate: new Date().toISOString().split('T')[0], // Devido hoje
+      },
+      {
+        id: 'sr_3',
+        discipline: 'Legislação de Trânsito',
+        topic: 'Medições e Margens de Erro do Etilômetro (Res. CONTRAN 432)',
+        details: 'O visor do aparelho indica a quantidade de álcool por ar alveolar. A tabela técnica do INMETRO aplica desconto de segurança: no visor deve constar no mínimo 0,34 mg/L para preencher o limite penal de 0,30 mg/L; e no mínimo 0,05 mg/L no visor para caracterizar a infração administrativa (limite legal é zero).',
+        intervalDays: 7,
+        nextReviewDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Em 2 dias
+      },
+      {
+        id: 'sr_4',
+        discipline: 'Direito Constitucional',
+        topic: 'Limites Constitucionais à Inviolabilidade Domiciliar',
+        details: 'A casa é o asilo inviolável do indivíduo. Ninguém nela pode ingressar sem consentimento do morador, à exceção de: 1) Flagrante delito ou desastre; 2) Prestação de socorro (a qualquer hora do dia ou da noite); 3) Determinação Judicial (exclusivamente durante o dia).',
+        intervalDays: 21,
+        nextReviewDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // Em 5 dias
+      },
+      {
+        id: 'sr_5',
+        discipline: 'Física',
+        topic: 'Conservação de Energia & Impacto Cinético de Frenagem',
+        details: 'Tratando-se de colisões mecânicas, o trabalho da força de frenagem é igual à variação da energia cinética (Ec = m*v²/2). Como a velocidade está elevada ao quadrado, dobrar a velocidade quadruplica a distância necessária para parar completamente o veículo sob mesmo coeficiente de atrito.',
+        intervalDays: 1,
+        nextReviewDate: new Date().toISOString().split('T')[0], // Devido hoje
+      }
+    ];
+  });
+
+  // Save to localStorage automatically on changes
+  useEffect(() => {
+    localStorage.setItem('prf_spaced_repetition_items', JSON.stringify(revisaoItems));
+  }, [revisaoItems]);
+
+  const [selectedRevisaoItem, setSelectedRevisaoItem] = useState<SpacedRepetitionItem | null>(null);
+  const [showSolution, setShowSolution] = useState<boolean>(false);
+  const [revisaoFilter, setRevisaoFilter] = useState<'todos' | 'urgentes' | 'agendados' | 'dominados'>('todos');
+
+  // Automatically insert an incorrect question answered in standard questions to dynamic Spaced Repetition queue
+  const addQuestionToSpacedRepetition = (question: Question) => {
+    const newItem: SpacedRepetitionItem = {
+      id: `sr_q_${question.id}_${Date.now()}`,
+      discipline: question.discipline,
+      topic: `Reforço: Erro em ${question.subtopic || question.discipline}`,
+      details: `Você respondeu incorretamente esta questão.\n\nEnunciado CEBRASPE:\n"${question.statement}"\n\nGabarito Correto: ${question.correctAnswer === 'C' ? 'Certo' : 'Errado'}.\n\nJustificativa Detalhada:\n${question.explanation}`,
+      intervalDays: 1, // Start immediately in the 24-hour cycle
+      nextReviewDate: new Date().toISOString().split('T')[0],
+    };
+
+    setRevisaoItems(prev => {
+      // Avoid duplicate cards for the exact same question
+      if (prev.some(item => item.id.includes(question.id))) {
+        return prev;
+      }
+      return [newItem, ...prev];
+    });
+  };
+
+  const handleResolveReviewWithInterval = (item: SpacedRepetitionItem, ratingDays: number) => {
+    // Calculate next review date: Today + ratingDays
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + ratingDays);
+    const nextDateStr = futureDate.toISOString().split('T')[0];
+
+    setRevisaoItems(prev => prev.map(sr => {
+      if (sr.id === item.id) {
+        return {
+          ...sr,
+          intervalDays: ratingDays,
+          nextReviewDate: nextDateStr
+        };
+      }
+      return sr;
+    }));
+
+    // Trigger positive progress feedback in system (add positive point and audio effect)
+    onQuestionAnswered(true, item.discipline);
+    playSuccessSound();
+
+    // Reset review state
+    setSelectedRevisaoItem(null);
+    setShowSolution(false);
   };
 
   // ==================== MODE 3: FLASHCARDS ====================
@@ -151,11 +255,28 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
   const handleGenerateAiFlashcard = async () => {
     setGeneratingCard(true);
     try {
+      const provider = localStorage.getItem('athena_ai_provider') || 'gemini';
+      const openaiKey = localStorage.getItem('athena_openai_api_key') || '';
+      const anthropicKey = localStorage.getItem('athena_anthropic_api_key') || '';
+      const geminiKey = localStorage.getItem('athena_gemini_api_key') || '';
+      const aiName = localStorage.getItem('athena_ai_name') || 'Athena AI';
+      const aiTone = localStorage.getItem('athena_ai_tone') || 'elite';
+      const aiStrictness = localStorage.getItem('athena_ai_strictness') || 'high';
+      const aiCustomInstruction = localStorage.getItem('athena_ai_custom_instruction') || '';
+
       const response = await fetch('/api/chat-athena', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [{ content: 'Gere um flashcard estratégico inédito de Legislação de Trânsito no formato Pergunta e Resposta curta. Retorne somente esse texto de forma direta, sem introdução.' }],
+          provider,
+          openaiKey,
+          anthropicKey,
+          geminiKey,
+          aiName,
+          aiTone,
+          aiStrictness,
+          aiCustomInstruction
         })
       });
       const data = await response.json();
@@ -448,60 +569,330 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
 
       {/* ==================================== TABCONTENT: REVISÃO ESPAÇADA ==================================== */}
       {activeTab === 'revisao' && (
-        <div className="space-y-5" id="revisao-sub-view">
-          <div>
-            <h3 className="text-lg font-bold text-white mb-1">Repetição Espaçada Inteligente</h3>
-            <p className="text-xs text-slate-400">
-              A Athena agendou as noções jurídicas e de trânsito abaixo para fixar antes do relaxamento da curva de esquecimento semanal.
-            </p>
+        <div className="space-y-6" id="revisao-sub-view">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold text-white mb-1 tracking-tight flex items-center gap-2">
+                <Layers className="w-5 h-5 text-emerald-400" /> Repetição Espaçada Inteligente
+              </h3>
+              <p className="text-xs text-slate-400">
+                Algoritmo ativo de retenção profunda. Seus erros em simulados e questões são programados para revisão de reforço aqui.
+              </p>
+            </div>
+            
+            {/* Quick manual topic creation */}
+            <button
+              onClick={() => {
+                const manualTopic = prompt("Digite um tópico do edital ou lei para revisar de forma espaçada:");
+                if (manualTopic) {
+                  const manualDiscipline = prompt("Digite a disciplina deste tópico (Ex: Legislação de Trânsito, Direito Penal, Física):") || "Geral";
+                  const manualDetails = prompt("Digite as observações chaves ou resposta para autoavaliação:") || "Defina observações chaves durante o estudo.";
+                  const newItem: SpacedRepetitionItem = {
+                    id: `sr_manual_${Date.now()}`,
+                    discipline: manualDiscipline,
+                    topic: manualTopic,
+                    details: manualDetails,
+                    intervalDays: 1,
+                    nextReviewDate: new Date().toISOString().split('T')[0],
+                  };
+                  setRevisaoItems(prev => [newItem, ...prev]);
+                  playSuccessSound();
+                }
+              }}
+              className="px-3.5 py-1.5 bg-slate-900 border border-slate-800 hover:border-slate-700 hover:text-white text-[11px] font-mono font-bold text-slate-300 rounded-lg transition-all flex items-center gap-1 shrink-0"
+              id="revisao-quick-add-btn"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-500" /> Adicionar Tópico Ativo
+            </button>
           </div>
 
-          <div className="space-y-3" id="revisao-items-list-container">
-            {revisaoCards.map((card, idx) => {
-              const isDone = completeRevisaoStep[idx];
-              return (
-                <div 
-                  key={idx}
-                  className={`p-4 border rounded-xl flex items-center justify-between gap-4 transition-all ${
-                    isDone 
-                      ? 'bg-emerald-950/10 border-emerald-900/30 opacity-70' 
-                      : 'bg-slate-950 border-slate-800/80 hover:border-slate-700'
-                  }`}
-                >
-                  <div className="flex items-start gap-3.5">
-                    <span className={`w-6 h-6 rounded-full font-mono text-xs font-bold flex items-center justify-center shrink-0 ${
-                      isDone ? 'bg-emerald-600 text-slate-950' : 'bg-slate-900 text-slate-400 border border-slate-800'
-                    }`}>
-                      {idx + 1}
-                    </span>
-                    <p className="text-xs text-slate-200 font-sans leading-relaxed pt-0.5">{card}</p>
-                  </div>
+          {/* Core Analytics Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4" id="spaced-rep-analytics-dashboard">
+            <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 text-center">
+              <span className="text-[10px] font-mono uppercase text-slate-500 block mb-0.5">Total de Itens</span>
+              <span className="text-xl font-bold text-white leading-none">{revisaoItems.length}</span>
+            </div>
+            <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-3.5 text-center shadow-lg">
+              <span className="text-[10px] font-mono uppercase text-amber-500 block mb-0.5 flex items-center justify-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span> Urgentes (Hoje)
+              </span>
+              <span className="text-xl font-bold text-white leading-none">
+                {revisaoItems.filter(i => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  return i.nextReviewDate <= todayStr;
+                }).length}
+              </span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 text-center">
+              <span className="text-[10px] font-mono uppercase text-slate-500 block mb-0.5">Agendados (Futuro)</span>
+              <span className="text-xl font-bold text-slate-300 leading-none">
+                {revisaoItems.filter(i => {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  return i.nextReviewDate > todayStr && i.intervalDays < 21;
+                }).length}
+              </span>
+            </div>
+            <div className="bg-slate-950 border border-slate-800/80 rounded-xl p-3.5 text-center">
+              <span className="text-[10px] font-mono uppercase text-emerald-500 block mb-0.5">Dominados (21d)</span>
+              <span className="text-xl font-bold text-emerald-400 leading-none">
+                {revisaoItems.filter(i => i.intervalDays === 21).length}
+              </span>
+            </div>
+          </div>
 
-                  <button
-                    onClick={() => handleResolveRevisao(idx)}
-                    className={`py-1 px-3 rounded-lg text-[10px] font-mono font-extrabold shadow-sm flex items-center gap-1 transition-all shrink-0 ${
-                      isDone 
-                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/30' 
-                        : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+          {/* Filtering Control Bar */}
+          <div className="flex bg-slate-950 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto" id="revisao-filters-container">
+            {[
+              { id: 'todos', label: 'Todos os Itens' },
+              { id: 'urgentes', label: 'Revisões Urgentes' },
+              { id: 'agendados', label: 'Próximos Dias' },
+              { id: 'dominados', label: 'Tópicos Dominados' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setRevisaoFilter(tab.id as any)}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-mono font-bold transition-all whitespace-nowrap ${
+                  revisaoFilter === tab.id
+                    ? 'bg-emerald-950/40 border border-emerald-500 text-white shadow'
+                    : 'text-slate-400 hover:text-white hover:bg-slate-900/40'
+                }`}
+                id={`btn-revisao-filter-${tab.id}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Main Repetition List */}
+          <div className="space-y-3" id="revisao-items-list-container">
+            {revisaoItems
+              .filter(item => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isUrgent = item.nextReviewDate <= todayStr;
+                const isScheduled = item.nextReviewDate > todayStr && item.intervalDays < 21;
+                const isDominado = item.intervalDays === 21;
+
+                if (revisaoFilter === 'urgentes') return isUrgent;
+                if (revisaoFilter === 'agendados') return isScheduled;
+                if (revisaoFilter === 'dominados') return isDominado;
+                return true;
+              })
+              .map((item) => {
+                const todayStr = new Date().toISOString().split('T')[0];
+                const isUrgent = item.nextReviewDate <= todayStr;
+                
+                // Calculate remaining days
+                const tDate = new Date(item.nextReviewDate);
+                const cyDate = new Date(todayStr);
+                const diffTime = tDate.getTime() - cyDate.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                return (
+                  <div 
+                    key={item.id}
+                    className={`p-4 border rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
+                      isUrgent 
+                        ? 'bg-slate-950 border-amber-500/40 shadow-sm hover:border-amber-500/60' 
+                        : 'bg-slate-950 border-slate-800/80 hover:border-slate-700'
                     }`}
+                    id={`spaced-card-item-${item.id}`}
                   >
-                    {isDone ? (
-                      <><Check className="w-3.5 h-3.5" /> Revisado</>
-                    ) : (
-                      'Marcar Lido'
-                    )}
+                    <div className="space-y-1.5 flex-1 select-none">
+                      <div className="flex items-center flex-wrap gap-2">
+                        <span className="text-[9px] font-mono uppercase bg-slate-900 border border-slate-800 text-slate-400 py-0.5 px-2 rounded-md tracking-wider">
+                          {item.discipline}
+                        </span>
+                        
+                        {isUrgent ? (
+                          <span className="text-[9px] font-mono bg-amber-950/60 border border-amber-900/50 text-amber-500 py-0.5 px-2 rounded-md font-extrabold flex items-center gap-1 animate-pulse">
+                            🚨 Urgente (Atrasado)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-mono bg-slate-900 border border-slate-800/80 text-slate-400 py-0.5 px-2 rounded-md font-bold">
+                            📅 Em {diffDays === 1 ? '1 dia' : `${diffDays} dias`} ({item.nextReviewDate.split('-').reverse().slice(0, 2).join('/')})
+                          </span>
+                        )}
+
+                        <span className="text-[9px] font-mono bg-slate-900 border border-slate-800/60 text-[#F97316]/80 py-0.5 px-1.5 rounded font-semibold">
+                          Intervalo: {item.intervalDays} {item.intervalDays === 1 ? 'dia' : 'dias'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-white font-sans font-bold leading-relaxed">{item.topic}</p>
+                      
+                      {/* Short helper excerpt */}
+                      <p className="text-[11px] text-slate-400 line-clamp-2 italic font-serif">
+                        {item.details}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
+                      <button
+                        onClick={() => {
+                          setSelectedRevisaoItem(item);
+                          setShowSolution(false);
+                        }}
+                        className={`py-2 px-4 rounded-xl text-xs font-mono font-extrabold shadow-sm transition-all text-center flex items-center gap-1.5 ${
+                          isUrgent 
+                            ? 'bg-amber-500 hover:bg-amber-400 hover:scale-[1.01] text-slate-950' 
+                            : 'bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300'
+                        }`}
+                        id={`btn-revisar-item-${item.id}`}
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Revisar Ativo
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {revisaoItems.filter(item => {
+              const todayStr = new Date().toISOString().split('T')[0];
+              const isUrgent = item.nextReviewDate <= todayStr;
+              const isScheduled = item.nextReviewDate > todayStr && item.intervalDays < 21;
+              const isDominado = item.intervalDays === 21;
+
+              if (revisaoFilter === 'urgentes') return isUrgent;
+              if (revisaoFilter === 'agendados') return isScheduled;
+              if (revisaoFilter === 'dominados') return isDominado;
+              return true;
+            }).length === 0 && (
+              <div className="text-center py-12 bg-slate-950/40 rounded-xl border border-dashed border-slate-800 text-slate-500" id="spaced-empty-state">
+                <HelpCircle className="w-12 h-12 text-slate-700 mx-auto mb-2" />
+                <p className="text-xs font-semibold">Nenhum tópico agendada sob estes filtros.</p>
+                <p className="text-[10px] text-slate-600 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Continue respondendo simulados ou as dezenas de questões modelo CEBRASPE. Seus erros serão alimentados aqui de forma automática!
+                </p>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-slate-950/55 border border-slate-800/80 p-4 rounded-xl text-xs text-slate-400 leading-relaxed flex items-start gap-2.5">
+            <span className="text-base shrink-0">📈</span>
+            <div>
+              <p className="font-semibold text-slate-300 text-xs mb-1">Como Funciona a Revisão Espaçada Ativa?</p>
+              <p>
+                Ao revisar um card, marque se você lembrou fácil, com dificuldade ou esqueceu. O algoritmo Athena atualiza os intervalos para **1 dia (urgente)**, **3 dias**, **7 dias** ou **21 dias (totalmente memorizado)**. Concluir revisões diárias consolida diretamente sua probabilidade de aprovação geral no simulador!
+              </p>
+            </div>
+          </div>
+
+          {/* ==================================== MODAL: INTERACTIVE ASSESSMENT INTERFACE ==================================== */}
+          {selectedRevisaoItem && (
+            <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" id="spaced-assessment-modal">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
+                
+                {/* Header */}
+                <div className="p-5 border-b border-slate-800 flex justify-between items-center bg-slate-950">
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-mono uppercase bg-slate-900 border border-slate-800 px-2 py-0.5 rounded text-emerald-400 font-bold">
+                      {selectedRevisaoItem.discipline}
+                    </span>
+                    <h4 className="text-xs text-slate-400 font-mono">Autoavaliação de Memorização</h4>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setSelectedRevisaoItem(null);
+                      setShowSolution(false);
+                    }}
+                    className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-900 transition-colors"
+                    id="btn-close-spaced-modal"
+                  >
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
-              );
-            })}
-          </div>
 
-          <div className="bg-slate-950/55 border border-slate-800 p-4 rounded-xl text-xs text-slate-400 leading-normal flex items-start gap-2.5">
-            <span className="text-base">📅</span>
-            <p>
-              Estes lembretes representam o ciclo de revisão ativa (24h - 7d - 30d). Manter as revisões zeradas garante seu **Nível de Aprovação** estável no simulador.
-            </p>
-          </div>
+                {/* Content body */}
+                <div className="p-6 overflow-y-auto space-y-5 flex-1">
+                  <div className="space-y-1 select-none">
+                    <h3 className="text-sm font-bold text-white tracking-tight">{selectedRevisaoItem.topic}</h3>
+                    <span className="text-[9px] text-[#F97316] font-mono leading-none block">Intervalo Atual: {selectedRevisaoItem.intervalDays}d</span>
+                  </div>
+
+                  {/* Active Recall Challenge Box */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-4">
+                    <span className="text-[9px] uppercase font-mono font-extrabold text-slate-500 tracking-wider flex items-center gap-1">
+                      💡 Desafio Cognitivo (Resgate Mental)
+                    </span>
+                    <p className="text-xs text-slate-200 leading-relaxed font-sans">
+                      Tente mentalizar a regra jurídica, o artigo do CTB ou a lei física correspondente a este tópico antes de revelar os detalhes.
+                    </p>
+
+                    {!showSolution ? (
+                      <button
+                        onClick={() => setShowSolution(true)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2 px-4 rounded-xl text-xs font-mono font-bold transition-transform hover:scale-[1.01]"
+                        id="btn-reveal-solution"
+                      >
+                        Revelar Solução / Cartão de Detalhes
+                      </button>
+                    ) : (
+                      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 animate-fade-in">
+                        <span className="text-[9px] text-emerald-400 uppercase font-mono font-bold block">
+                          Gabarito e Justificativa Detalhada
+                        </span>
+                        <p className="text-xs text-slate-300 font-sans whitespace-pre-wrap leading-relaxed">
+                          {selectedRevisaoItem.details}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Cognitive Rating Footer (Only visible when solution is toggled) */}
+                <div className="p-5 border-t border-slate-800 bg-slate-950 space-y-4">
+                  {showSolution ? (
+                    <div className="space-y-3">
+                      <p className="text-center text-xs text-slate-300 font-semibold font-mono">
+                        Como foi sua retenção sobre o conteúdo?
+                      </p>
+                      <div className="grid grid-cols-2 xs:grid-cols-4 gap-2">
+                        <button
+                          onClick={() => handleResolveReviewWithInterval(selectedRevisaoItem, 1)}
+                          className="py-2.5 px-2 bg-red-950/20 border border-red-900/40 hover:bg-red-950/50 hover:border-red-500 text-red-400 rounded-xl text-[10px] font-mono font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+                          id="btn-rate-errei"
+                        >
+                          <span className="text-sm">❌</span>
+                          <span>Esqueci (1d)</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleResolveReviewWithInterval(selectedRevisaoItem, 3)}
+                          className="py-2.5 px-2 bg-amber-950/20 border border-amber-900/40 hover:bg-amber-950/50 hover:border-amber-500 text-amber-500 rounded-xl text-[10px] font-mono font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+                          id="btn-rate-dificil"
+                        >
+                          <span className="text-sm">⚠️</span>
+                          <span>Difícil (3d)</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleResolveReviewWithInterval(selectedRevisaoItem, 7)}
+                          className="py-2.5 px-2 bg-indigo-950/20 border border-indigo-900/40 hover:bg-indigo-950/50 hover:border-indigo-500 text-indigo-400 rounded-xl text-[10px] font-mono font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+                          id="btn-rate-bom"
+                        >
+                          <span className="text-sm">⚡</span>
+                          <span>Bom (7d)</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleResolveReviewWithInterval(selectedRevisaoItem, 21)}
+                          className="py-2.5 px-2 bg-emerald-950/20 border border-emerald-900/40 hover:bg-emerald-950/50 hover:border-emerald-500 text-emerald-400 rounded-xl text-[10px] font-mono font-bold transition-all text-center flex flex-col items-center justify-center gap-1"
+                          id="btn-rate-facil"
+                        >
+                          <span className="text-sm">🏆</span>
+                          <span>Fácil (21d)</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-center text-xs text-slate-500 italic">
+                      Clique no botão acima para revelar o gabarito e escolher a data ideal para sua próxima repetição.
+                    </p>
+                  )}
+                </div>
+
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -529,8 +920,10 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
               {/* Card Container */}
               <div 
                 onClick={() => setIsFlipped(!isFlipped)}
-                className={`w-full min-h-[220px] bg-slate-950 border border-slate-800 hover:border-slate-700/80 rounded-2xl cursor-pointer shadow-lg p-6 flex flex-col justify-between transition-all duration-300 relative select-none ${
-                  isFlipped ? 'shadow-emerald-950/20 shadow-xl border-emerald-900/40 bg-gradient-to-b from-slate-950 to-emerald-950/10' : ''
+                className={`w-full min-h-[220px] bg-slate-950 border rounded-2xl cursor-pointer shadow-lg p-6 flex flex-col justify-between transition-all duration-300 relative select-none ${
+                  isFlipped 
+                    ? 'border-emerald-500 ring-1 ring-emerald-500/30 shadow-emerald-500/10 shadow-xl' 
+                    : 'border-slate-800 hover:border-slate-700/80'
                 }`}
                 id="interactive-fc-card"
               >
@@ -562,15 +955,15 @@ export default function Treinar({ selectedTaskToTrain, onQuestionAnswered, onFoc
                 <div className="flex justify-center gap-4 mt-6 w-full animate-fade-in" id="fc-controls">
                   <button 
                     onClick={() => handleCardFeedback(false)}
-                    className="flex-1 py-2 px-4 rounded-xl border border-red-900/40 bg-red-950/20 text-red-400 hover:bg-red-950/40 font-bold font-mono text-xs transition-colors"
+                    className="flex-1 py-3 px-4 rounded-xl border border-red-900/40 bg-red-950/20 text-red-500 hover:bg-red-950/40 font-bold font-mono text-xs transition-colors"
                   >
-                    Errei / Esqueci
+                    Eu esqueci
                   </button>
                   <button 
                     onClick={() => handleCardFeedback(true)}
-                    className="flex-1 py-2 px-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-emerald-400 hover:bg-emerald-950/40 font-bold font-mono text-xs transition-colors"
+                    className="flex-1 py-3 px-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 text-emerald-500 hover:bg-emerald-950/40 font-bold font-mono text-xs transition-colors"
                   >
-                    Lembrei Fácil!
+                    Eu lembrei
                   </button>
                 </div>
               )}

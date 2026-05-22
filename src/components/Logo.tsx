@@ -7,198 +7,204 @@ interface LogoProps {
 }
 
 export default function Logo({ variant = 'full', className = '', theme = 'dark' }: LogoProps) {
-  // Select styling colors depending on theme
-  const textColor = theme === 'light' ? 'text-slate-900' : 'text-white';
-  const sloganColor = theme === 'light' ? 'text-slate-600' : 'text-slate-400';
-  const sloganBgColor = theme === 'light' ? 'bg-slate-100 border-slate-200' : 'bg-slate-900/40 border-slate-800/65';
-
   const isFull = variant === 'full';
   const isCompact = variant === 'compact';
 
-  // The Pure SVG Shield Logo Icon
+  // Core Theme Colors
+  const textColor = theme === 'light' ? 'text-slate-900' : 'text-white';
+  const logoXColor = theme === 'light' ? '#0F172A' : '#FFFFFF';
+
+  // The Majestic Golden Owl & Circuit Wings Vector (Directly matches the provided attachment)
   const LogoIcon = (
-    <svg 
-      viewBox="0 0 100 100" 
-      className={`${isCompact ? 'w-10 h-10' : 'w-24 h-24 sm:w-32 sm:h-32'} filter drop-shadow-md shrink-0`}
-      fill="none" 
+    <svg
+      viewBox="0 0 240 200"
+      className={`${isCompact ? 'w-10 h-10' : 'w-28 h-28 sm:w-36 sm:h-36'} filter drop-shadow-md shrink-0`}
+      fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        {/* Left Shield Border Gradient (Shining Rich Gold) */}
-        <linearGradient id="shieldGoldLeft" x1="15" y1="5" x2="50" y2="95" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FBDF7E" />
-          <stop offset="50%" stopColor="#F59E0B" />
-          <stop offset="100%" stopColor="#D97706" />
+        {/* Supreme Golden Gradient */}
+        <linearGradient id="owlGoldGrad" x1="20" y1="20" x2="220" y2="180" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FFF2C3" />
+          <stop offset="25%" stopColor="#F59E0B" />
+          <stop offset="50%" stopColor="#D97706" />
+          <stop offset="75%" stopColor="#B45309" />
+          <stop offset="100%" stopColor="#FBBF24" />
         </linearGradient>
 
-        {/* Right Shield Border Gradient (Metallic Steel / Shadow Gold) */}
-        <linearGradient id="shieldShadeRight" x1="85" y1="5" x2="50" y2="95" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#3F3F46" />
-          <stop offset="30%" stopColor="#1C1C1E" />
-          <stop offset="70%" stopColor="#0B3C5D" />
-          <stop offset="100%" stopColor="#1E293B" />
+        {/* Shimmer Base (Metallic Silver/Zinc for Contrast) */}
+        <linearGradient id="metallicGrad" x1="120" y1="0" x2="120" y2="200" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.45" />
+          <stop offset="50%" stopColor="#94A3B8" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#0F172A" stopOpacity="0.85" />
         </linearGradient>
 
-        {/* Central "X" Top-Left to Bottom-Right Gradient */}
-        <linearGradient id="orangeGoldA" x1="20" y1="20" x2="80" y2="80" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FBBF24" />
-          <stop offset="40%" stopColor="#F97316" />
-          <stop offset="100%" stopColor="#EA580C" />
+        <linearGradient id="glowYellow" x1="120" y1="100" x2="120" y2="140" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#FEF08A" />
+          <stop offset="100%" stopColor="#CA8A04" />
         </linearGradient>
 
-        {/* Central "X" Top-Right to Bottom-Left Gradient */}
-        <linearGradient id="orangeGoldB" x1="80" y1="20" x2="20" y2="80" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFF1C5" />
-          <stop offset="50%" stopColor="#EF6A0F" />
-          <stop offset="100%" stopColor="#C2410C" />
-        </linearGradient>
-
-        {/* Tactical Crosshair Ring */}
-        <radialGradient id="targetRad" cx="50" cy="52" r="30" fx="50" fy="52">
-          <stop offset="70%" stopColor="#1E293B" stopOpacity="0" />
-          <stop offset="100%" stopColor="#F59E0B" stopOpacity="0.15" />
-        </radialGradient>
-
-        {/* Bevel Highlights */}
-        <linearGradient id="bevelLight" x1="50" y1="0" x2="50" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#000000" stopOpacity="0.4" />
-        </linearGradient>
+        {/* Drop shadow filter for wings */}
+        <filter id="nodeShadow" x="-10%" y="-10%" width="120%" height="120%">
+          <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#D97706" floodOpacity="0.32" />
+        </filter>
       </defs>
 
-      {/* Target Crosshair Circle behind X */}
-      <circle cx="50" cy="52" r="23" stroke="#475569" strokeWidth="1.2" strokeOpacity="0.45" strokeDasharray="2 1" />
-      <circle cx="50" cy="52" r="23" fill="url(#targetRad)" />
-      
-      {/* Crosshair Horizontal Ticks */}
-      <line x1="20" y1="52" x2="26" y2="52" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.8" />
-      <line x1="74" y1="52" x2="80" y2="52" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.8" />
-      {/* Crosshair Vertical Ticks */}
-      <line x1="50" y1="22" x2="50" y2="28" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.8" />
-      <line x1="50" y1="76" x2="50" y2="82" stroke="#475569" strokeWidth="1.5" strokeOpacity="0.8" />
-
-      {/* Underlayer Shadow of Shield */}
-      <path 
-        d="M 50,7 L 82,16 L 82,54 C 82,72 50,91 50,91 C 50,91 18,72 18,54 L 18,16 Z" 
-        fill={theme === 'light' ? '#E2E8F0' : '#020617'} 
-        opacity="0.8"
+      {/* BACKGROUND SHIELD CAST SHADOW */}
+      <path
+        d="M 120,42 C 114,42 96,55 96,78 C 96,108 120,135 120,135 C 120,135 144,108 144,78 C 144,55 126,42 120,42 Z"
+        fill="#070A13"
+        opacity="0.3"
       />
 
-      {/* Left Shield Outline (Golden Protection Armor) */}
-      <path 
-        d="M 50,5 L 15,15 L 15,55 C 15,75 50,93 50,93 Z" 
-        fill="none" 
-        stroke="url(#shieldGoldLeft)" 
-        strokeWidth="4" 
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Right Shield Outline (Tactical Dark Slate Grid Armor) */}
-      <path 
-        d="M 50,5 L 85,15 L 85,55 C 85,75 50,93 50,93 Z" 
-        fill="none" 
-        stroke="url(#shieldShadeRight)" 
-        strokeWidth="4" 
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-
-      {/* Shield Inner Split Bevel Shadow */}
-      <path d="M 50,5 L 50,93 L 85,55 L 85,15 Z" fill="#4B5563" opacity="0.08" />
-
-      {/* Tactical Police/DUDH Cross (Bottom Position inside Shield) */}
-      <g opacity="0.85">
-        {/* Vertical Pole */}
-        <path d="M 50,65 L 50,84" stroke={theme === 'light' ? '#334155' : '#94A3B8'} strokeWidth="2.5" strokeLinecap="round" />
-        {/* Horizontal Bar */}
-        <path d="M 44,70 L 56,70" stroke={theme === 'light' ? '#334155' : '#94A3B8'} strokeWidth="2.5" strokeLinecap="round" />
-        {/* Arrow/Base curve anchor */}
-        <path d="M 41,75 C 41,75 45,82 50,82 C 55,82 59,75 59,75" fill="none" stroke={theme === 'light' ? '#334155' : '#94A3B8'} strokeWidth="1.8" strokeLinecap="round" />
-      </g>
-
-      {/* Intellectual Neural Brain + Circuit (Top Position inside Shield) */}
-      <g transform="translate(42, 10) scale(0.165)" strokeWidth="1.2">
-        {/* Left Organic Brain Half */}
-        <path 
-          d="M48.5,39.5 C43.2,39.5 38.3,35.6 38.3,30.3 C38.3,25.4 42.4,22.4 44,22.2 C40,16.5 45.4,11 50.8,11 C54.3,11 57.5,13.6 57.8,17.4 C60.9,13.8 66.8,14.6 67.4,19.3 C71.2,19.3 74,22.4 74,26.2 C74,30.8 70.3,34.5 65.7,34.5 C65.7,36 64.9,39.5 59.8,39.5 C56.6,39.5 54.4,37.5 53.6,35.8 C51.2,38.3 49.3,39.5 48.5,39.5 Z" 
-          fill="none" 
-          stroke={theme === 'light' ? '#475569' : '#94A3B8'} 
-          strokeWidth="3.5" 
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path d="M48.4,25.3 C44,26.5 44,31.2 48.4,31.2" stroke={theme === 'light' ? '#475569' : '#94A3B8'} strokeWidth="3" fill="none" strokeLinecap="round" />
-        <path d="M57.6,18.8 C54.2,21.1 54.2,26.6 57.6,28.8" stroke={theme === 'light' ? '#475569' : '#94A3B8'} strokeWidth="3" fill="none" strokeLinecap="round" />
-
-        {/* Right Digital Circuit Brain Half */}
-        <path 
-          d="M49.5,39.5 C54.8,39.5 59.7,35.6 59.7,30.3 C59.7,25.4 55.6,22.4 54,22.2 C58,16.5 52.6,11 47.2,11 C43.7,11 40.5,13.6 40.2,17.4 C37.1,13.8 31.2,14.6 30.6,19.3 C26.8,19.3 24,22.4 24,26.2 C24,30.8 27.7,34.5 32.3,34.5 C32.3,36 33.1,39.5 38.2,39.5 C41.4,39.5 43.6,37.5 44.4,35.8 C46.8,38.3 48.7,39.5 49.5,39.5 Z" 
-          fill="none" 
-          stroke="#F59E0B" 
-          strokeWidth="3.5" 
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          transform="translate(98, 0) scale(-1, 1)"
-        />
-        {/* Tech Nodes connections */}
-        <circle cx="58" cy="22" r="3" fill="#F59E0B" />
-        <circle cx="68" cy="27" r="3" fill="#FBBF24" />
-        <circle cx="65" cy="18" r="2.5" fill="#F59E0B" />
-        <circle cx="58" cy="34" r="3" fill="#F1F5F9" />
-
-        {/* Connections circuitry lines */}
-        <path d="M49.5,30 L55,30 L58,22" stroke="#F59E0B" strokeWidth="2.5" fill="none" />
-        <path d="M49.5,23 L62,23 L65,18" stroke="#F59E0B" strokeWidth="2.5" fill="none" />
-        <path d="M49.5,35 L53,35 L58,34" stroke="#F59E0B" strokeWidth="2.5" fill="none" />
-        <path d="M55,30 L65,30 L68,27" stroke="#FBBF24" strokeWidth="2" fill="none" />
+      {/* --- CIRCUIT WINGS (LEFT) --- */}
+      <g stroke="url(#owlGoldGrad)" strokeWidth="1.8" strokeLinecap="round" opacity="0.95">
+        {/* Inner circuit tracks */}
+        <path d="M 85,82 L 48,58 L 32,58" />
+        <path d="M 85,95 L 42,85 L 24,85" />
+        <path d="M 88,110 L 45,115 L 26,115" />
+        <path d="M 92,125 L 56,140 L 44,140" />
         
-        {/* Support Base under the brain */}
-        <path d="M48.5,40.5 L48.5,47" stroke={theme === 'light' ? '#475569' : '#94A3B8'} strokeWidth="4" />
-        <path d="M41,47 L56,47" stroke={theme === 'light' ? '#475569' : '#94A3B8'} strokeWidth="4" strokeLinecap="round" />
+        {/* Joint connecting track lines */}
+        <path d="M 48,58 L 42,85 L 45,115 L 56,140" strokeWidth="1.2" opacity="0.6" />
       </g>
 
-      {/* Main Stylized Beveled Golden "X" of ProvaX */}
-      <g>
-        {/* Arm A (Top-Left to Bottom-Right) shadow layer */}
-        <path 
-          d="M 28,32 L 38,24 L 75,70 L 65,78 Z" 
-          fill="#1E293B" 
-          opacity="0.5" 
-          transform="translate(1, 2)"
-        />
-        {/* Arm B (Top-Right to Bottom-Left) shadow layer */}
-        <path 
-          d="M 72,32 L 62,24 L 25,70 L 35,78 Z" 
-          fill="#1E293B" 
-          opacity="0.5" 
-          transform="translate(-1, 2)"
-        />
+      {/* Left Wing Node Circles */}
+      <g fill="url(#owlGoldGrad)">
+        <circle cx="32" cy="58" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="24" cy="85" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="26" cy="115" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="44" cy="140" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="48" cy="58" r="1.8" />
+        <circle cx="42" cy="85" r="1.8" />
+        <circle cx="45" cy="115" r="1.8" />
+        <circle cx="56" cy="140" r="1.8" />
+      </g>
 
-        {/* Arm A (Top-Left to Bottom-Right) with gloss gradient */}
-        <path 
-          d="M 28,32 L 38,24 L 75,70 L 65,78 Z" 
-          fill="url(#orangeGoldA)" 
-          stroke="#FBDF7E" 
+      {/* --- CIRCUIT WINGS (RIGHT) --- */}
+      <g stroke="url(#owlGoldGrad)" strokeWidth="1.8" strokeLinecap="round" opacity="0.95">
+        {/* Inner circuit tracks */}
+        <path d="M 155,82 L 192,58 L 208,58" />
+        <path d="M 155,95 L 198,85 L 216,85" />
+        <path d="M 152,110 L 195,115 L 214,115" />
+        <path d="M 148,125 L 184,140 L 196,140" />
+
+        {/* Joint connecting track lines */}
+        <path d="M 192,58 L 198,85 L 195,115 L 184,140" strokeWidth="1.2" opacity="0.6" />
+      </g>
+
+      {/* Right Wing Node Circles */}
+      <g fill="url(#owlGoldGrad)">
+        <circle cx="208" cy="58" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="216" cy="85" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="214" cy="115" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="196" cy="140" r="3.2" filter="url(#nodeShadow)" />
+        <circle cx="192" cy="58" r="1.8" />
+        <circle cx="198" cy="85" r="1.8" />
+        <circle cx="195" cy="115" r="1.8" />
+        <circle cx="184" cy="140" r="1.8" />
+      </g>
+
+      {/* --- OWL ICON HEAD & EAR TUFTS --- */}
+      {/* Ear Tufts (Left & Right) */}
+      <path d="M 94,40 L 102,24 L 114,35 Z" fill="url(#owlGoldGrad)" />
+      <path d="M 146,40 L 138,24 L 126,35 Z" fill="url(#owlGoldGrad)" />
+
+      {/* Owl Outer Shield Body (High Contrast Edge) */}
+      <path
+        d="M 120,40 C 111,40 92,52 92,78 C 92,110 120,138 120,138 C 120,138 148,110 148,78 C 148,52 129,40 120,40 Z"
+        fill={theme === 'light' ? '#0F172A' : '#0B1120'}
+        stroke="url(#owlGoldGrad)"
+        strokeWidth="3.2"
+        strokeLinejoin="round"
+      />
+
+      {/* Symmetrical Left brow/cheek armor */}
+      <path
+        d="M 120,54 C 118,54 100,45 96,65 L 104,75 Z"
+        fill="url(#owlGoldGrad)"
+        opacity="0.85"
+      />
+      {/* Symmetrical Right brow/cheek armor */}
+      <path
+        d="M 120,54 C 122,54 140,45 144,65 L 136,75 Z"
+        fill="url(#owlGoldGrad)"
+        opacity="0.85"
+      />
+
+      {/* Deep Shadow Mask inside Owl face */}
+      <path d="M 98,62 C 98,52 142,52 142,62 C 142,68 120,72 120,72 C 120,72 98,68 98,62 Z" fill="#030712" />
+
+      {/* --- GLOWING INTELLIGENT EYES (Vandals Tech Style) --- */}
+      <polygon points="101,54 115,58 114,64 103,63" fill="#FFFFFF" />
+      <polygon points="104,56 112,59 111,62 105,61" fill="#000000" />
+      <circle cx="108" cy="59" r="1.3" fill="url(#owlGoldGrad)" />
+
+      <polygon points="139,54 125,58 126,64 137,63" fill="#FFFFFF" />
+      <polygon points="136,56 128,59 129,62 135,61" fill="#000000" />
+      <circle cx="132" cy="59" r="1.3" fill="url(#owlGoldGrad)" />
+
+      {/* Golden Nose/Beak */}
+      <polygon points="120,58 123,71 117,71" fill="url(#owlGoldGrad)" />
+
+      {/* --- OWL BODY ARMORED "X" PATTERN (Chest armor) --- */}
+      <g opacity="0.9">
+        {/* Left-to-Right diagonal golden strap */}
+        <path d="M 100,75 L 140,115" stroke="url(#owlGoldGrad)" strokeWidth="3.5" strokeLinecap="round" />
+        {/* Right-to-Left diagonal dark steel/gold strap for depth */}
+        <path d="M 140,75 L 100,115" stroke={theme === 'light' ? '#334155' : '#475569'} strokeWidth="3.5" strokeLinecap="round" />
+        {/* Reinforcement gold strip on overlapping strap */}
+        <path d="M 136,79 L 126,89" stroke="url(#owlGoldGrad)" strokeWidth="3.5" strokeLinecap="round" />
+        <path d="M 114,101 L 104,111" stroke="url(#owlGoldGrad)" strokeWidth="3.5" strokeLinecap="round" />
+      </g>
+
+      {/* --- GLOWING BRAIN-LIGHTBULB (At the bottom of the Owl Shield) --- */}
+      <g transform="translate(112, 108) scale(0.65)" opacity="0.95">
+        {/* External Glow Background */}
+        <circle cx="12" cy="12" r="10" fill="#EAB308" opacity="0.15" />
+        {/* Lightbulb outline */}
+        <path
+          d="M 12,2 C 8,2 5,5 5,9 C 5,11.5 6.5,13.5 8,15 L 8,18 C 8,19 9,20 10,20 L 14,20 C 15,20 16,19 16,18 L 16,15 C 17.5,13.5 19,11.5 19,9 C 19,5 16,2 12,2 Z"
+          fill="url(#glowYellow)"
+          stroke="url(#owlGoldGrad)"
           strokeWidth="1.2"
         />
+        {/* Filament lines */}
+        <path d="M 10,9 L 12,13 L 14,9" stroke="#FFFFFF" strokeWidth="1" strokeLinecap="round" />
+        {/* Bulb base stripes */}
+        <rect x="9.5" y="20" width="5" height="1.5" rx="0.5" fill="#1E293B" stroke="url(#owlGoldGrad)" strokeWidth="0.8" />
+        <rect x="10.5" y="22" width="3" height="1" rx="0.5" fill="#1E293B" />
+      </g>
 
-        {/* Arm B (Top-Right to Bottom-Left) with highlight gradient */}
-        <path 
-          d="M 72,32 L 62,24 L 25,70 L 35,78 Z" 
-          fill="url(#orangeGoldB)" 
-          stroke="#FFF1C5" 
-          strokeWidth="1"
+      {/* --- OPEN STRATEGIC BOOK (Sling support at base) --- */}
+      <g>
+        {/* Book shadow layer */}
+        <path
+          d="M 120,138 C 104,124 58,124 38,136 L 38,150 C 58,138 104,138 120,152 C 136,138 182,138 202,150 L 202,136 C 182,124 136,124 120,138 Z"
+          fill="#030712"
+          opacity="0.45"
         />
 
-        {/* Overlapping intersection bevel node in golden orange */}
-        <polygon 
-          points="50,44 57,51 50,58 43,51" 
-          fill="url(#orangeGoldA)" 
-          stroke="#FEE2E2" 
-          strokeWidth="0.8" 
-          opacity="0.95"
+        {/* Outer golden pages */}
+        <path
+          d="M 120,140 C 105,126 60,126 40,138 L 40,147 C 60,135 105,135 120,149 C 135,135 180,135 200,147 L 200,138 C 180,126 135,126 120,140 Z"
+          fill={theme === 'light' ? '#0F172A' : '#141B2E'}
+          stroke="url(#owlGoldGrad)"
+          strokeWidth="2.5"
+          strokeLinejoin="round"
         />
+
+        {/* Middle gold accent sheet leaf */}
+        <path
+          d="M 120,144 C 106,132 68,132 46,142 L 46,146 C 68,136 106,136 120,148 C 134,136 172,136 194,146 L 194,142 C 172,132 134,132 120,144 Z"
+          fill="none"
+          stroke="url(#owlGoldGrad)"
+          strokeWidth="1.2"
+          opacity="0.85"
+        />
+
+        {/* Center Golden Spine Holder */}
+        <rect x="118.5" y="138" width="3" height="12" rx="1" fill="url(#owlGoldGrad)" />
       </g>
     </svg>
   );
@@ -212,50 +218,94 @@ export default function Logo({ variant = 'full', className = '', theme = 'dark' 
   }
 
   return (
-    <div className={`flex ${isCompact ? 'flex-row items-center gap-2 sm:gap-3' : 'flex-col items-center justify-center text-center'} ${className} select-none`}>
+    <div className={`flex ${isCompact ? 'flex-row items-center gap-2.5 sm:gap-3.5' : 'flex-col items-center justify-center text-center'} ${className} select-none`}>
       {/* Icon portion */}
-      <div className="relative">
+      <div className="relative shrink-0">
         {LogoIcon}
         {isCompact && (
-          <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#22C55E] rounded-full border border-slate-900 animate-pulse" />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-[#22C55E] rounded-full border border-slate-950 animate-pulse" />
         )}
       </div>
 
       {/* Typography portion */}
       {isCompact ? (
         <div className="flex flex-col text-left select-text">
-          <div className="flex items-baseline gap-1">
-            <span className={`font-mono font-black text-sm sm:text-base tracking-widest leading-none ${textColor}`}>
+          <div className="flex items-center gap-1">
+            <span className={`font-sans font-black tracking-widest text-base sm:text-lg leading-none ${textColor}`}>
               PROVA
             </span>
-            <span className="font-extrabold text-base sm:text-xl text-[#F59E0B] leading-none">
-              X
-            </span>
-            <span className="font-bold text-[10px] sm:text-xs text-[#EA580C] leading-none font-mono">
+            
+            {/* Split Style Sleek X */}
+            <div className="flex font-extrabold text-[#F59E0B] text-lg sm:text-xl leading-none font-sans select-none items-center">
+              <span style={{ color: logoXColor }} className="opacity-95">X</span>
+              <span className="text-[#F59E0B] -ml-1">X</span>
+            </div>
+
+            <span className="font-extrabold text-[11px] sm:text-xs text-[#EA580C] leading-none font-mono tracking-wider ml-0.5 self-end pb-0.5">
               AI
             </span>
           </div>
-          <span className="text-[8px] sm:text-[9px] font-bold font-mono text-slate-400 leading-none uppercase tracking-widest mt-1">
+          <span className="text-[8px] sm:text-[9.5px] font-sans font-black text-slate-400 hover:text-slate-350 tracking-widest leading-none uppercase mt-1 transition-colors">
             OPERAÇÕES PRF
           </span>
         </div>
       ) : (
-        <div className="mt-4 flex flex-col items-center text-center max-w-sm sm:max-w-md">
-          <div className="flex items-baseline justify-center select-text">
-            <span className={`font-sans font-black text-3xl sm:text-4xl md:text-5xl tracking-widest leading-none ${textColor}`}>
+        <div className="mt-4 flex flex-col items-center text-center max-w-sm sm:max-w-xl">
+          <div className="flex items-center justify-center select-text">
+            <span className={`font-sans font-black text-3xl sm:text-4xl md:text-5xl tracking-wider leading-none ${textColor}`}>
               PROVA
             </span>
-            <span className="font-extrabold text-4xl sm:text-5xl md:text-6xl text-[#F59E0B] leading-none ml-1">
-              X
-            </span>
-            <span className="font-mono font-black text-[15px] sm:text-lg md:text-xl text-[#EA580C] leading-none ml-1 tracking-wider">
+            
+            {/* Premium X Logo from Attachment */}
+            <div className="flex font-black text-4xl sm:text-5xl md:text-6xl leading-none ml-1 relative">
+              <span style={{ color: logoXColor }} className="opacity-20 absolute select-none">X</span>
+              {/* Combine dark-side of X and golden-side of X for gorgeous design */}
+              <span className="text-[#050B14] dark:text-white filter drop-shadow">X</span>
+              <span className="text-[#F59E0B] -ml-5 sm:-ml-7 filter drop-shadow-md">X</span>
+            </div>
+
+            <span className="font-sans font-black text-lg sm:text-xl md:text-2xl text-[#F59E0B] leading-none ml-2 tracking-wider">
               AI
             </span>
           </div>
 
-          {/* Golden Highlight Border Slogan bar */}
-          <div className={`mt-3 py-1.5 px-3 rounded-full border text-[8px] sm:text-[10px] md:text-xs font-bold font-mono uppercase tracking-wider ${sloganBgColor} ${sloganColor} overflow-hidden shadow-sm`}>
-            ESTUDE COM <span className="text-amber-500 font-extrabold">INTELICE®NCIA</span>. EVOLUA COM <span className="text-amber-500 font-extrabold">ESTRATÉGIA</span>. APROVE COM <span className="text-[#EA580C] font-extrabold">PRECISÃO</span>.
+          {/* Slogan with Two Golden Horizontal Lines directly matching the provided image style */}
+          <div className="w-full flex items-center justify-center gap-3 mt-4">
+            <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-r from-transparent to-[#F59E0B]" />
+            <span className="text-[8.5px] sm:text-[10px] md:text-[11px] font-sans font-extrabold uppercase tracking-widest text-[#F59E0B] whitespace-nowrap">
+              INTELIGÊNCIA ESTRATÉGICA PARA APROVAÇÃO
+            </span>
+            <div className="h-[1px] flex-1 max-w-[40px] bg-gradient-to-l from-transparent to-[#F59E0B]" />
+          </div>
+
+          {/* Core Strategic Values Indicators (Target, Brain, Results) inside full layout */}
+          <div className="flex items-center justify-center gap-4 sm:gap-6 mt-6 pt-3 border-t border-slate-500/10 text-slate-500 font-sans font-bold text-[9px] sm:text-[11px] uppercase tracking-widest">
+            <div className="flex items-center gap-1.5 focus-indigo-400 hover:text-[#FBBF24] transition-colors">
+              <svg className="w-4 h-4 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <circle cx="12" cy="12" r="10" />
+                <circle cx="12" cy="12" r="6" />
+                <circle cx="12" cy="12" r="2" />
+              </svg>
+              <span>Estratégia</span>
+            </div>
+            
+            <div className="text-slate-500/30 font-light select-none">|</div>
+            
+            <div className="flex items-center gap-1.5 hover:text-[#FBBF24] transition-colors">
+              <svg className="w-4 h-4 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              </svg>
+              <span>Foco</span>
+            </div>
+
+            <div className="text-slate-500/30 font-light select-none">|</div>
+
+            <div className="flex items-center gap-1.5 hover:text-[#FBBF24] transition-colors">
+              <svg className="w-4 h-4 text-[#F59E0B]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+              <span>Resultados</span>
+            </div>
           </div>
         </div>
       )}

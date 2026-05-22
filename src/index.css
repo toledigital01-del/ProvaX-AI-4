@@ -590,3 +590,62 @@ button:active, a:active {
   color: #1e3a8a !important; /* Texto corpo em azul-marinho nos avisos gerais */
 }
 
+/* Custom Light Mode Overrides for Admin Panel high-sobriety backgrounds/borders */
+.light-theme .bg-\[\#090d16\] {
+  background-color: #f1f5f9 !important; /* Clean premium grey-blue page background */
+  color: #0f172a !important;
+}
+.light-theme .bg-\[\#0b0f19\] {
+  background-color: #ffffff !important; /* White sub-header strip */
+  border-bottom-color: #e2e8f0 !important;
+}
+.light-theme .bg-\[\#070a13\] {
+  background-color: #f8fafc !important; /* Soft slate-50 background for nav sidebars */
+}
+.light-theme .bg-\[\#0f1524\] {
+  background-color: #ffffff !important; /* Pure white containers/dashboard cards */
+}
+.light-theme .border-\[\#182030\],
+.light-theme .border-\[\#141b2b\],
+.light-theme .border-slate-800,
+.light-theme .border-slate-850 {
+  border-color: #cbd5e1 !important; /* Clean soft slate borders */
+}
+.light-theme .text-slate-100,
+.light-theme .text-slate-200,
+.light-theme .text-white {
+  color: #0f172a !important; /* High contrast dark ink text */
+}
+.light-theme .text-slate-300 {
+  color: #1e293b !important; /* Deep dark grey */
+}
+.light-theme .text-slate-350,
+.light-theme .text-slate-400 {
+  color: #334155 !important; /* High visibility grey text */
+}
+.light-theme .text-slate-500,
+.light-theme .text-slate-600,
+.light-theme .text-slate-650 {
+  color: #64748b !important; /* Accessible descriptor text */
+}
+.light-theme .text-\[\#7f8e9c\],
+.light-theme .text-\[\#8f9cae\] {
+  color: #475569 !important; /* Readable dark Slate for custom dashboard tags */
+}
+.light-theme .text-\[\#8f9cae\]\/60 {
+  color: #64748b !important;
+}
+.light-theme .bg-[#070a13]\/60,
+.light-theme .bg-slate-950 {
+  background-color: #f1f5f9 !important;
+}
+.light-theme .hover\:bg-\[\#070a13\]\/60:hover {
+  background-color: #e2e8f0 !important;
+}
+.light-theme .divide-y.divide-\[\#141b2b\] > * {
+  border-color: #cbd5e1 !important;
+}
+.light-theme .bg-indigo-600\/15 {
+  background-color: rgba(79, 70, 229, 0.1) !important; /* Solid light tint for active tab */
+}
+

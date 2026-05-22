@@ -47,16 +47,42 @@ app.get('/api/health', (req, res) => {
 
 // 2. Athena Strategic Chat Assistant
 app.post('/api/chat-athena', async (req, res) => {
-  const { messages, onboarding, progress } = req.body;
+  const { 
+    messages, 
+    onboarding, 
+    progress,
+    provider,
+    openaiKey,
+    anthropicKey,
+    geminiKey,
+    aiName,
+    aiTone,
+    aiStrictness,
+    aiCustomInstruction
+  } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     return res.status(400).json({ error: 'Formato de mensagens inválido.' });
   }
 
   const lastUserMessage = messages[messages.length - 1]?.content || '';
+  
+  // Custom Tone formulation
+  const toneMap: Record<string, string> = {
+    elite: 'Elite Policial (Exigente, Rigorosa, Disciplinada e Tática)',
+    motivator: 'Motivacional (Empática, Inspiradora, Compreensiva e Focada no Próximo Nível)',
+    academic: 'Acadêmica & Jurídica (Formal, Doutrinária, Altamente Técnica e Profunda)',
+    direct: 'Direta (Informativa, Assertiva, Focada em Insights Rápidos)'
+  };
+  const activeTone = toneMap[aiTone] || toneMap.elite;
+
   const contextPrompt = `
-Você é a mentora de inteligência artificial **Athena**, especialista no concurso da Polícia Rodoviária Federal (PRF).
-Você foi projetada por especialistas em alta performance de preparação estratégica para concursos federais, dominando as pegadinhas e o edital CEBRASPE.
+Você é a mentora de inteligência artificial **${aiName || 'Athena'}**, especialista máxima na aprovação do concurso da Polícia Rodoviária Federal (PRF).
+Você foi projetada por mentores e delegados experientes em alta performance, dominando as pegadinhas e o edital CEBRASPE.
+
+Seu tom de relacionamento ativo selecionado é: **${activeTone}**. Incorpore essa postura filosófica em cada linha!
+Instruções extras comportamentais do Administrador:
+"${aiCustomInstruction || 'Manter alta exigência técnica e simulados recorrentes de legislação do CTB.'}"
 
 **Perfil do Candidato:**
 - Cargo pretendido: ${onboarding?.role || 'PRF'}
@@ -76,8 +102,8 @@ Você foi projetada por especialistas em alta performance de preparação estrat
 **Filosofia do App:** Foco estratégico no edital da PRF 2021, priorização de tópicos de maior peso, dominar regramentos da banca CEBRASPE (uma errada anula uma certa), domínio pleno de trânsito (CTB), e aconselhamento direcionado e empático.
 
 **Instruções de Resposta:**
-1. Responda em Português brasileiro de forma objetiva, motivadora, empática e estratégica. Use termos normais de preparação de concurso de trânsito (como "mantenha o foco aceso", "siga no fluxo de estudos", "conquiste suas metas diárias").
-2. Sempre que perguntado sobre legislação de trânsito (CTB) ou direito constitucional, dê respostas precisas citando artigos reais e explicando as pegadinhas típicas da CEBRASPE.
+1. Responda em Português brasileiro de forma objetiva, motivadora e estratégica, vestindo sempre o papel de ${aiName || 'Athena'}. Use termos normais de preparação de concurso de trânsito.
+2. Sempre que perguntado sobre legislação de trânsito (CTB) ou direito constitucional, dê respostas extremamente precisas citando artigos reais e explicando as pegadinhas típicas da CEBRASPE.
 3. Ofereça conselhos práticos e rápidos.
 
 Mensagem do usuário: "${lastUserMessage}"
@@ -87,7 +113,7 @@ Mensagem do usuário: "${lastUserMessage}"
   const simulateFallback = (query: string): string => {
     const qLower = query.toLowerCase();
     if (qLower.includes('olá') || qLower.includes('ola') || qLower.includes('oi') || qLower.includes('athena')) {
-      return `Olá, futuro(a) aprovado(a) na PRF! Sou a **Athena**, sua guia e mentora dedicada à sua preparação. Analisei seu perfil de onboarding. Você escolheu focar em **${onboarding?.role || 'PRF'}** estudando **${onboarding?.hoursPerDay || 4}h por dia**. 
+      return `Olá, futuro(a) aprovado(a) na PRF! Sou a **${aiName || 'Athena'}**, sua guia e mentora dedicada à sua preparação. Analisei seu perfil de onboarding. Você escolheu focar em **${onboarding?.role || 'PRF'}** estudando **${onboarding?.hoursPerDay || 4}h por dia**. 
 As matérias de maior desafio identificadas são: **${(onboarding?.difficulties || []).join(', ') || 'nenhuma no momento'}**.
 Minha missão é guiar você até a aprovação. O que deseja planejar hoje? Podemos calibrar seu cronograma semanal, simular pegadinhas do CTB ou treinar uma matéria específica. Siga firme rumo à nomeação! 📝`;
     }
@@ -117,37 +143,127 @@ Lembre-se: O excesso punível se aplica a qualquer causa de exclusão da ilicitu
 Minha recomendação imediata: cumpra a meta de estudos de hoje para elevar sua probabilidade de aprovação atual, que está estimada em **${progress?.currentApprovalProbability || '48.5'}%**. Quer que eu gere um mini-simulado focado nesse tema ou prefere revisar seus flashcards mais urgentes?`;
   };
 
-  if (!ai) {
-    // Return simulated response instantly
-    return res.json({
-      content: simulateFallback(lastUserMessage),
-      sender: 'athena',
-      timestamp: new Date().toISOString(),
-    });
+  const sysInstruction = `Você é ${aiName || 'Athena'}, mentora inteligente de preparação estratégica ágil para o concurso da Polícia Rodoviária Federal (PRF). Responda sempre em português brasileiro, com termos encorajadores de estudos, orientações objetivas do edital, do Código de Trânsito Brasileiro (CTB) e análises precisas para neutralizar as pegadinhas tradicionais de Certo ou Errado da banca CEBRASPE. Tom ativo: ${activeTone}.`;
+
+  // 2A. CHOOSE OPENAI GPT PROVIDER
+  if (provider === 'openai') {
+    const keyToUse = openaiKey || process.env.OPENAI_API_KEY;
+    if (keyToUse) {
+      try {
+        const oaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${keyToUse}`
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              { role: 'system', content: sysInstruction },
+              { role: 'user', content: contextPrompt }
+            ],
+            temperature: 0.7
+          })
+        });
+
+        if (oaiResponse.ok) {
+          const oaiData = await oaiResponse.json();
+          const responseText = oaiData.choices?.[0]?.message?.content;
+          if (responseText) {
+            return res.json({
+              content: responseText,
+              sender: 'athena',
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          const errText = await oaiResponse.text();
+          console.error('Erro na chamada OpenAI:', errText);
+        }
+      } catch (err) {
+        console.error('Falha de conexão OpenAI API:', err);
+      }
+    }
   }
 
-  try {
-    const geminiResponse = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: contextPrompt,
-      config: {
-        systemInstruction: 'Você é Athena, mentora inteligente de preparação estratégica ágil para o concurso da Polícia Rodoviária Federal (PRF). Responda sempre em português, com termos encorajadores de estudos voltados para concurseiros da PRF, orientações objetivas extraídas do edital, do Código de Trânsito Brasileiro (CTB) e análises precisas para neutralizar as pegadinhas tradicionais de Certo ou Errado da banca CEBRASPE.',
-      },
-    });
+  // 2B. CHOOSE ANTHROPIC CLAUDE PROVIDER
+  if (provider === 'anthropic') {
+    const keyToUse = anthropicKey || process.env.ANTHROPIC_API_KEY;
+    if (keyToUse) {
+      try {
+        const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-api-key': keyToUse,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            system: sysInstruction,
+            messages: [
+              { role: 'user', content: contextPrompt }
+            ]
+          })
+        });
 
-    res.json({
-      content: geminiResponse.text || simulateFallback(lastUserMessage),
-      sender: 'athena',
-      timestamp: new Date().toISOString(),
-    });
-  } catch (error: any) {
-    console.error('Erro na chamada Gemini do chat:', error);
-    res.json({
-      content: `${simulateFallback(lastUserMessage)}\n\n*(Nota: Rodando em modo de simulação otimizada devido a instabilidade com a credencial externa, mas com pleno embasamento profissional do edital PRF!)*`,
-      sender: 'athena',
-      timestamp: new Date().toISOString(),
-    });
+        if (anthropicResponse.ok) {
+          const anthData = await anthropicResponse.json();
+          const responseText = anthData.content?.[0]?.text;
+          if (responseText) {
+            return res.json({
+              content: responseText,
+              sender: 'athena',
+              timestamp: new Date().toISOString()
+            });
+          }
+        } else {
+          const errText = await anthropicResponse.text();
+          console.error('Erro na chamada Anthropic:', errText);
+        }
+      } catch (err) {
+        console.error('Falha de conexão Anthropic API:', err);
+      }
+    }
   }
+
+  // 2C. CHOOSE GOOGLE GEMINI PROVIDER (DEFAULT / FALLBACK)
+  let activeGeminiSdk = ai;
+  if (geminiKey) {
+    try {
+      activeGeminiSdk = new GoogleGenAI({ apiKey: geminiKey });
+    } catch (e) {
+      console.error('Erro ao instanciar chave Gemini customizada do Admin:', e);
+    }
+  }
+
+  if (activeGeminiSdk) {
+    try {
+      const geminiResponse = await activeGeminiSdk.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: contextPrompt,
+        config: {
+          systemInstruction: sysInstruction,
+        },
+      });
+
+      return res.json({
+        content: geminiResponse.text || simulateFallback(lastUserMessage),
+        sender: 'athena',
+        timestamp: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      console.error('Erro na chamada Gemini:', error);
+    }
+  }
+
+  // 2D. NO KEY / SIMULATION FALLBACK MODE
+  return res.json({
+    content: simulateFallback(lastUserMessage),
+    sender: 'athena',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // 3. Generate adaptive Study Schedule based on candidate's profile
@@ -179,78 +295,219 @@ Gere um cronograma de estudos completo de 7 dias (Segunda-feira a Domingo) e um 
   - "weekly": Array de 7 objetos contendo:
       - "dayOfWeek": Nome do dia da semana (ex: "Segunda-feira", etc.)
       - "disciplines": Array de disciplinas contendo:
-         - "name": Nome da matéria
-         - "duration": duração em minutos (soma menor ou igual a ${onboarding?.hoursPerDay * 60 || 240})
-         - "activityType": "teoria" | "questões" | "revisão" | "simulado"
-         - "topic": Descrição curta e realista do artigo/tópico com base no edital oficial da PRF
+          - "name": Nome da matéria
+          - "duration": duração em minutos (soma menor ou igual a ${onboarding?.hoursPerDay * 60 || 240})
+          - "activityType": "teoria" | "questões" | "revisão" | "simulado"
+          - "topic": Descrição curta e realista do artigo/tópico com base no edital oficial da PRF
   - "monthly": Array de 4 objetos contendo:
       - "weekIndex": índice 1 a 4
       - "theme": Tema central macro da semana
       - "focusDisciplines": lista de disciplinas foco da respectiva semana
 `;
 
-  const fallbackSchedule = {
-    weekly: [
-      {
-        dayOfWeek: 'Segunda-feira',
-        disciplines: [
-          { name: 'Legislação de Trânsito', duration: 90, activityType: 'teoria', topic: 'Artigos 1º ao 16º: SNT e vias públicas' },
-          { name: 'Língua Portuguesa', duration: 60, activityType: 'questões', topic: 'Reescrita e Coesão Textual CEBRASPE' },
-          { name: 'Física', duration: 30, activityType: 'revisão', topic: 'Revisão rápida de cinemática' }
-        ]
-      },
-      {
-        dayOfWeek: 'Terça-feira',
-        disciplines: [
-          { name: 'Direito Constitucional', duration: 90, activityType: 'teoria', topic: 'Artigo 5º - Direitos Individuais e Coletivos' },
-          { name: 'Raciocínio Lógico-Matemático', duration: 60, activityType: 'questões', topic: 'Equivalências de condicionais e tabelas verdade' },
-          { name: 'Direito Administrativo', duration: 30, activityType: 'revisão', topic: 'Agentes Públicos e Responsabilidades' }
-        ]
-      },
-      {
-        dayOfWeek: 'Quarta-feira',
-        disciplines: [
-          { name: 'Legislação de Trânsito', duration: 90, activityType: 'teoria', topic: 'Normas de circulação e conduta e preferência' },
-          { name: 'Direito Penal', duration: 60, activityType: 'teoria', topic: 'Teoria da Atividade e Tempo do Crime' },
-          { name: 'Legislação de Trânsito', duration: 30, activityType: 'questões', topic: 'Exercícios práticos de velocidade e ultrapassagem' }
-        ]
-      },
-      {
-        dayOfWeek: 'Quinta-feira',
-        disciplines: [
-          { name: 'Língua Portuguesa', duration: 90, activityType: 'teoria', topic: 'Emprego do sinal indicativo de crase' },
-          { name: 'Informática', duration: 60, activityType: 'questões', topic: 'Ataques de Ransomware, Phishing e Defesas' },
-          { name: 'Direito Constitucional', duration: 30, activityType: 'revisão', topic: 'Revisão ativa Artigo 5º incisos' }
-        ]
-      },
-      {
-        dayOfWeek: 'Sexta-feira',
-        disciplines: [
-          { name: 'Legislação de Trânsito', duration: 70, activityType: 'teoria', topic: 'Art. 165 e Crimes de Trânsito - Lei Seca' },
-          { name: 'Direito Administrativo', duration: 70, activityType: 'teoria', topic: 'Poder de polícia administrativa e prerrogativas' },
-          { name: 'Física', duration: 40, activityType: 'questões', topic: 'Determinação de energia cinética em Frenagem' }
-        ]
-      },
-      {
-        dayOfWeek: 'Sábado',
-        disciplines: [
-          { name: 'Revisão Geral Semanal', duration: 90, activityType: 'revisão', topic: 'Revolução de resumos e preenchimento de pontos lacunares' },
-          { name: 'Simulado Inteligente', duration: 90, activityType: 'simulado', topic: 'Simulado de 40 questões focado em Trânsito e Direito' }
-        ]
-      },
-      {
-        dayOfWeek: 'Domingo',
-        disciplines: [
-          { name: 'Planejamento de Metas', duration: 30, activityType: 'revisão', topic: 'Análise de métricas com a Athena AI e descanso ativo' }
-        ]
+  // Dynamic adaptive calculation in pure javascript as high-quality local generation / fallback
+  const name = onboarding?.name || 'Recruta';
+  const hoursPerDay = Number(onboarding?.hoursPerDay) || 4;
+  const difficulties = onboarding?.difficulties || [];
+  const hasDoneExam = !!onboarding?.hasDoneExam;
+  const lang = onboarding?.selectedLanguage || 'Inglês';
+
+  // Total daily minutes
+  const totalMinutes = hoursPerDay * 60;
+  const weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+  
+  // Custom week layout tailored daily to student answers
+  const scheduleMatrix = [
+    // Mon (Trânsito focus + Português + Constitucional)
+    [
+      { name: 'Legislação de Trânsito', baseWeight: 0.45 },
+      { name: 'Língua Portuguesa', baseWeight: 0.35 },
+      { name: 'Direito Constitucional', baseWeight: 0.20 }
+    ],
+    // Tue (Penal focus + Raciocínio Lógico-Matemático + Física)
+    [
+      { name: 'Direito Penal', baseWeight: 0.40 },
+      { name: 'Raciocínio Lógico-Matemático', baseWeight: 0.30 },
+      { name: 'Física', baseWeight: 0.30 }
+    ],
+    // Wed (Trânsito heavy + Administrativo + Informática)
+    [
+      { name: 'Legislação de Trânsito', baseWeight: 0.45 },
+      { name: 'Direito Administrativo', baseWeight: 0.30 },
+      { name: 'Informática', baseWeight: 0.25 }
+    ],
+    // Thu (Português + Processual Penal + Foreign Language chosen)
+    [
+      { name: 'Língua Portuguesa', baseWeight: 0.40 },
+      { name: 'Direito Processual Penal', baseWeight: 0.30 },
+      { name: `Língua Estrangeira (${lang})`, baseWeight: 0.30 }
+    ],
+    // Fri (Trânsito focus + Legislação Especial + Direitos Humanos)
+    [
+      { name: 'Legislação de Trânsito', baseWeight: 0.40 },
+      { name: 'Legislação Especial', baseWeight: 0.30 },
+      { name: 'Direitos Humanos', baseWeight: 0.30 }
+    ]
+  ];
+
+  // Adjust schedule weights according to student difficulties
+  for (let i = 0; i < scheduleMatrix.length; i++) {
+    const daySubjects = scheduleMatrix[i];
+    let hasDiff = false;
+    daySubjects.forEach(ds => {
+      // Check if this subject is marked as a difficulty
+      const isDiff = difficulties.some((diff: string) => ds.name.toLowerCase().includes(diff.toLowerCase()));
+      if (isDiff) {
+        ds.baseWeight += 0.15; // boost dedicated focus
+        hasDiff = true;
       }
-    ],
-    monthly: [
-      { weekIndex: 1, theme: 'Imersão em Legislação e Fundamentos Sociais', focusDisciplines: ['Legislação de Trânsito', 'Língua Portuguesa', 'Direito Constitucional'] },
-      { weekIndex: 2, theme: 'Trânsito Avançado, Física Traumática e Crimes', focusDisciplines: ['Legislação de Trânsito', 'Física', 'Direito Penal'] },
-      { weekIndex: 3, theme: 'Poder de Polícia, Agentes e Coesão Gramatical', focusDisciplines: ['Língua Portuguesa', 'Direito Administrativo', 'Raciocínio Lógico-Matemático'] },
-      { weekIndex: 4, theme: 'Consolidação Geral, Simulado e Trunfos da Banca', focusDisciplines: ['Simulados Adaptativos', 'Revisões Críticas', 'Legislação Curta'] }
-    ],
+    });
+
+    if (hasDiff) {
+      // Normalize weights so the sum stays exact
+      const weightSum = daySubjects.reduce((sum, d) => sum + d.baseWeight, 0);
+      daySubjects.forEach(d => {
+        d.baseWeight = d.baseWeight / weightSum;
+      });
+    }
+  }
+
+  // Generate weekly array
+  const weekly = [];
+  for (let i = 0; i < 5; i++) {
+    const dayName = weekdays[i];
+    const daySubjects = scheduleMatrix[i];
+    
+    const disciplines = daySubjects.map((ds, idx) => {
+      const duration = Math.max(25, Math.round((ds.baseWeight * totalMinutes) / 5) * 5);
+      
+      // Tailor training activity type based on exam experience parameter
+      let activityType = 'teoria';
+      if (hasDoneExam) {
+        // Veterans focus more on active exercises
+        activityType = idx === 0 ? 'questões' : idx === 1 ? 'questões' : 'revisão';
+      } else {
+        // Beginners focus on concepts
+        activityType = idx === 0 ? 'teoria' : idx === 1 ? 'teoria' : 'revisão';
+      }
+
+      // If user has difficulty in this subject, customize the action type to match their level
+      const isUserDifficulty = difficulties.some((diff: string) => ds.name.toLowerCase().includes(diff.toLowerCase()));
+      if (isUserDifficulty) {
+        activityType = hasDoneExam ? 'questões' : 'teoria';
+      }
+
+      // Populate topics directly according to the PRF official 2021 verticalization
+      let topic = '';
+      if (ds.name.includes('Trânsito')) {
+        const trânsitoTopics = [
+          'Artigos 1º ao 16º: Sistema Nacional de Trânsito no CTB',
+          'Normas Gerais de Circulação e Conduta (Artigos 26 ao 48 do CTB)',
+          'Resolução CONTRAN 432: Testes de alcoolemia e margens de erro',
+          'Infrações Gravíssimas, Graves e sistemática de penalidades',
+          'Medidas Administrativas de retenção, remoção de veículos e recolhimento'
+        ];
+        topic = trânsitoTopics[i % trânsitoTopics.length];
+      } else if (ds.name.includes('Portuguesa')) {
+        topic = 'Sintaxe e regência de termos - Foco nas permutas de palavras CEBRASPE';
+      } else if (ds.name.includes('Constitucional')) {
+        topic = 'Defesa do Estado e Segurança Pública (Art. 144 CF)';
+      } else if (ds.name.includes('Penal')) {
+        topic = 'Teoria do crime: fato típico, culpabilidade, ilicitude e dolo';
+      } else if (ds.name.includes('Administrativo')) {
+        topic = 'Poder de polícia administrativa, limites e discricionariedade';
+      } else if (ds.name.includes('Física')) {
+        topic = 'Dinâmica do Trauma: Energia cinética durante desaceleração veicular';
+      } else if (ds.name.includes('Estrangeira')) {
+        topic = `Análise e vocabulário técnico de ocorrências policiais em ${lang}`;
+      } else {
+        topic = `Dominando tópicos críticos do edital de segurança e questões de ${ds.name}`;
+      }
+
+      if (isUserDifficulty) {
+        topic += ` [REFORÇO ADAPTATIVO: Dificuldade de ${name}]`;
+      }
+
+      return {
+        name: ds.name,
+        duration,
+        activityType,
+        topic
+      };
+    });
+
+    weekly.push({
+      dayOfWeek: dayName,
+      disciplines
+    });
+  }
+
+  // Saturday - Active recall, Simulation block and direct weakness override
+  const satDuration = Math.max(90, Math.round(totalMinutes * 0.8));
+  const mainDifficulty = difficulties[0] || 'Física';
+  
+  weekly.push({
+    dayOfWeek: 'Sábado',
+    disciplines: [
+      {
+        name: mainDifficulty,
+        duration: Math.round(satDuration * 0.4),
+        activityType: 'questões',
+        topic: `Ciclo Corretivo de Nivelamento: Simulados curtos em ${mainDifficulty} para eliminar erros`
+      },
+      {
+        name: 'Simulado Inteligente',
+        duration: Math.round(satDuration * 0.6),
+        activityType: 'simulado',
+        topic: hasDoneExam 
+          ? 'Simulado Completo Alto Impacto - 120 Itens modelo Certo/Errado'
+          : 'Simulado Progressivo Guiado: Diagnóstico integrado de ansiedade e tempo de prova'
+      }
+    ]
+  });
+
+  // Sunday - Metas calibration
+  weekly.push({
+    dayOfWeek: 'Domingo',
+    disciplines: [
+      {
+        name: 'Planejamento de Metas',
+        duration: 30,
+        activityType: 'revisão',
+        topic: `Mentoria Athena AI: Ajustar o rendimento da meta de ${hoursPerDay}h diárias`
+      }
+    ]
+  });
+
+  // Monthly Theme adaptivity
+  const firstDifficulty = difficulties[0] || 'Língua Portuguesa';
+  const secondDifficulty = difficulties[1] || 'Física';
+  const monthly = [
+    { 
+      weekIndex: 1, 
+      theme: `Imersão em Legislação de Trânsito e ${firstDifficulty}`, 
+      focusDisciplines: ['Legislação de Trânsito', firstDifficulty, 'Direito Constitucional'] 
+    },
+    { 
+      weekIndex: 2, 
+      theme: `Trânsito Avançado, ${secondDifficulty} e Prática Penal`, 
+      focusDisciplines: ['Legislação de Trânsito', secondDifficulty, 'Direito Penal'] 
+    },
+    { 
+      weekIndex: 3, 
+      theme: `Consolidação de Direito Administrativo, Estratégia de ${lang} e ${difficulties[2] || 'Raciocínio Lógico'}`, 
+      focusDisciplines: ['Direito Administrativo', `Língua Estrangeira (${lang})`, difficulties[2] || 'Raciocínio Lógico-Matemático'] 
+    },
+    { 
+      weekIndex: 4, 
+      theme: 'Trunfos da Banca CEBRASPE, Simulados Gerais e Redação Dissertativa', 
+      focusDisciplines: ['Todas as Matérias', 'Revisões Críticas', 'Simulados Adaptativos'] 
+    }
+  ];
+
+  const fallbackSchedule = {
+    weekly,
+    monthly,
     createdDate: new Date().toISOString().split('T')[0],
     lastRecalibrated: new Date().toISOString().split('T')[0]
   };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { UserOnboarding, StudySchedule, ProgressData, StudyTask, DailyMission, LibraryItem, Message } from './types';
+import { UserOnboarding, StudySchedule, ProgressData, StudyTask, DailyMission, LibraryItem, Message, DaySchedule, TaskType } from './types';
 import Onboarding from './components/Onboarding';
 import Dashboard from './components/Dashboard';
 import Treinar from './components/Treinar';
@@ -12,6 +12,7 @@ import Planos from './components/Planos';
 import LandingPage from './components/LandingPage';
 import Logo from './components/Logo';
 import RadarContran from './components/RadarContran';
+import AdminPanel from './components/AdminPanel';
 import { playSuccessSound, playClickSound, playCorrectSound, isSoundEnabled, setSoundEnabled } from './utils/audioEffects';
 
 import { 
@@ -193,6 +194,202 @@ export default function App() {
   // Mobile menu control toggles
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // Dynamic adaptive schedule builder as robust fallback
+  const generateClientAdaptiveSchedule = (onboardingData: UserOnboarding): StudySchedule => {
+    const name = onboardingData?.name || 'Recruta';
+    const hoursPerDay = Number(onboardingData?.hoursPerDay) || 4;
+    const difficulties = onboardingData?.difficulties || [];
+    const hasDoneExam = !!onboardingData?.hasDoneExam;
+    const lang = onboardingData?.selectedLanguage || 'Inglês';
+
+    const totalMinutes = hoursPerDay * 60;
+    const weekdays = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+    
+    const scheduleMatrix = [
+      // Mon (Trânsito focus + Português + Constitucional)
+      [
+        { name: 'Legislação de Trânsito', baseWeight: 0.45 },
+        { name: 'Língua Portuguesa', baseWeight: 0.35 },
+        { name: 'Direito Constitucional', baseWeight: 0.20 }
+      ],
+      // Tue (Penal focus + Raciocínio Lógico-Matemático + Física)
+      [
+        { name: 'Direito Penal', baseWeight: 0.40 },
+        { name: 'Raciocínio Lógico-Matemático', baseWeight: 0.30 },
+        { name: 'Física', baseWeight: 0.30 }
+      ],
+      // Wed (Trânsito heavy + Administrativo + Informática)
+      [
+        { name: 'Legislação de Trânsito', baseWeight: 0.45 },
+        { name: 'Direito Administrativo', baseWeight: 0.30 },
+        { name: 'Informática', baseWeight: 0.25 }
+      ],
+      // Thu (Português + Processual Penal + Foreign Language)
+      [
+        { name: 'Língua Portuguesa', baseWeight: 0.40 },
+        { name: 'Direito Processual Penal', baseWeight: 0.30 },
+        { name: `Língua Estrangeira (${lang})`, baseWeight: 0.30 }
+      ],
+      // Fri (Trânsito focus + Legislação Especial + Direitos Humanos)
+      [
+        { name: 'Legislação de Trânsito', baseWeight: 0.40 },
+        { name: 'Legislação Especial', baseWeight: 0.30 },
+        { name: 'Direitos Humanos', baseWeight: 0.30 }
+      ]
+    ];
+
+    // Boost weights according to student difficulties
+    for (let i = 0; i < scheduleMatrix.length; i++) {
+      const daySubjects = scheduleMatrix[i];
+      let hasDiff = false;
+      daySubjects.forEach(ds => {
+        const isDiff = difficulties.some(diff => ds.name.toLowerCase().includes(diff.toLowerCase()));
+        if (isDiff) {
+          ds.baseWeight += 0.15;
+          hasDiff = true;
+        }
+      });
+
+      if (hasDiff) {
+        const weightSum = daySubjects.reduce((sum, d) => sum + d.baseWeight, 0);
+        daySubjects.forEach(d => {
+          d.baseWeight = d.baseWeight / weightSum;
+        });
+      }
+    }
+
+    const weekly: DaySchedule[] = [];
+    for (let i = 0; i < 5; i++) {
+      const dayName = weekdays[i];
+      const daySubjects = scheduleMatrix[i];
+      
+      const disciplines = daySubjects.map((ds, idx) => {
+        const duration = Math.max(25, Math.round((ds.baseWeight * totalMinutes) / 5) * 5);
+        
+        let activityType: TaskType = 'teoria';
+        if (hasDoneExam) {
+          activityType = idx === 0 ? 'questões' : idx === 1 ? 'questões' : 'revisão';
+        } else {
+          activityType = idx === 0 ? 'teoria' : idx === 1 ? 'teoria' : 'revisão';
+        }
+
+        const isUserDifficulty = difficulties.some(diff => ds.name.toLowerCase().includes(diff.toLowerCase()));
+        if (isUserDifficulty) {
+          activityType = hasDoneExam ? 'questões' : 'teoria';
+        }
+
+        let topic = '';
+        if (ds.name.includes('Trânsito')) {
+          const trânsitoTopics = [
+            'Artigos 1º ao 16º: Sistema Nacional de Trânsito no CTB',
+            'Normas Gerais de Circulação e Conduta (Artigos 26 ao 48 do CTB)',
+            'Resolução CONTRAN 432: Testes de alcoolemia e limites práticos',
+            'Infrações Gravíssimas, Crimes e sistemática de pontuações',
+            'Medidas Administrativas de retenção, remoção de veículos e recolhimento'
+          ];
+          topic = trânsitoTopics[i % trânsitoTopics.length];
+        } else if (ds.name.includes('Portuguesa')) {
+          topic = 'Sintaxe e regência de termos - Foco nas permutas de palavras CEBRASPE';
+        } else if (ds.name.includes('Constitucional')) {
+          topic = 'Defesa do Estado e Segurança Pública (Art. 144 CF)';
+        } else if (ds.name.includes('Penal')) {
+          topic = 'Teoria do crime: fato típico, culpabilidade, ilicitude e dosimetria';
+        } else if (ds.name.includes('Administrativo')) {
+          topic = 'Poder de polícia administrativa, discricionariedade e autoexecutoriedade';
+        } else if (ds.name.includes('Física')) {
+          topic = 'Dinâmica do Trauma: Energia cinética durante desaceleração veicular';
+        } else if (ds.name.includes('Estrangeira')) {
+          topic = `Análise e vocabulário técnico de ocorrências policiais em ${lang}`;
+        } else {
+          topic = `Dominando tópicos críticos do edital de segurança e questões de ${ds.name}`;
+        }
+
+        if (isUserDifficulty) {
+          topic += ` [REFORÇO ADAPTATIVO: Dificuldade de ${name}]`;
+        }
+
+        return {
+          name: ds.name,
+          duration,
+          activityType,
+          topic
+        };
+      });
+
+      weekly.push({
+        dayOfWeek: dayName,
+        disciplines
+      });
+    }
+
+    const satDuration = Math.max(90, Math.round(totalMinutes * 0.8));
+    const mainDifficulty = difficulties[0] || 'Física';
+    
+    weekly.push({
+      dayOfWeek: 'Sábado',
+      disciplines: [
+        {
+          name: mainDifficulty,
+          duration: Math.round(satDuration * 0.4),
+          activityType: 'questões',
+          topic: `Ciclo Corretivo de Nivelamento: Simulados curtos em ${mainDifficulty} para eliminar erros`
+        },
+        {
+          name: 'Simulado Inteligente',
+          duration: Math.round(satDuration * 0.6),
+          activityType: 'simulado',
+          topic: hasDoneExam 
+            ? 'Simulado Completo Alto Impacto - 120 Itens modelo Certo/Errado'
+            : 'Simulado Progressivo Guiado: Diagnóstico integrado de ansiedade e tempo de prova'
+        }
+      ]
+    });
+
+    weekly.push({
+      dayOfWeek: 'Domingo',
+      disciplines: [
+        {
+          name: 'Planejamento de Metas',
+          duration: 30,
+          activityType: 'revisão',
+          topic: `Mentoria Athena AI: Ajustar o rendimento da meta de ${hoursPerDay}h diárias`
+        }
+      ]
+    });
+
+    const firstDifficulty = difficulties[0] || 'Língua Portuguesa';
+    const secondDifficulty = difficulties[1] || 'Física';
+    const monthly = [
+      { 
+        weekIndex: 1, 
+        theme: `Imersão em Legislação de Trânsito e ${firstDifficulty}`, 
+        focusDisciplines: ['Legislação de Trânsito', firstDifficulty, 'Direito Constitucional'] 
+      },
+      { 
+        weekIndex: 2, 
+        theme: `Trânsito Avançado, ${secondDifficulty} e Prática Penal`, 
+        focusDisciplines: ['Legislação de Trânsito', secondDifficulty, 'Direito Penal'] 
+      },
+      { 
+        weekIndex: 3, 
+        theme: `Consolidação de Direito Administrativo, Estratégia de ${lang} e ${difficulties[2] || 'Raciocínio Lógico'}`, 
+        focusDisciplines: ['Direito Administrativo', `Língua Estrangeira (${lang})`, difficulties[2] || 'Raciocínio Lógico-Matemático'] 
+      },
+      { 
+        weekIndex: 4, 
+        theme: 'Trunfos da Banca CEBRASPE, Simulados Gerais e Redação Dissertativa', 
+        focusDisciplines: ['Todas as Matérias', 'Revisões Críticas', 'Simulados Adaptativos'] 
+      }
+    ];
+
+    return {
+      weekly,
+      monthly,
+      createdDate: new Date().toLocaleDateString('pt-BR'),
+      lastRecalibrated: new Date().toLocaleDateString('pt-BR')
+    };
+  };
+
   // Hook triggered when onboarding ends successfully
   const handleOnboardingComplete = (data: UserOnboarding, generatedSchedule: any) => {
     setOnboarding(data);
@@ -200,67 +397,9 @@ export default function App() {
     if (generatedSchedule) {
       setSchedule(generatedSchedule);
     } else {
-      // Build an elegant default study schedule
-      const defaultSchedule: StudySchedule = {
-        weekly: [
-          {
-            dayOfWeek: 'Segunda-feira',
-            disciplines: [
-              { name: 'Legislação de Trânsito', duration: 90, activityType: 'teoria', topic: 'Normas Gerais de Circulação e Conduta (Art. 26 ao 48 do CTB)' },
-              { name: 'Direito Constitucional', duration: 60, activityType: 'questões', topic: 'Artigo 144 da CF e Estrutura de Segurança Pública' }
-            ]
-          },
-          {
-            dayOfWeek: 'Terça-feira',
-            disciplines: [
-              { name: 'Direito Penal', duration: 90, activityType: 'teoria', topic: 'Crimes contra a Administração Pública e Exclusão de Ilicitude' },
-              { name: 'Legislação de Trânsito', duration: 60, activityType: 'revisão', topic: 'Resolução CONTRAN 432: Regulamento do Bafômetro' }
-            ]
-          },
-          {
-            dayOfWeek: 'Quarta-feira',
-            disciplines: [
-              { name: 'Língua Portuguesa', duration: 90, activityType: 'questões', topic: 'Sintaxe da Oração, Regência e Reescrita de Frases' },
-              { name: 'Direito Administrativo', duration: 60, activityType: 'teoria', topic: 'Poderes Administrativos e Poder de Polícia' }
-            ]
-          },
-          {
-            dayOfWeek: 'Quinta-feira',
-            disciplines: [
-              { name: 'Física', duration: 90, activityType: 'teoria', topic: 'Cinemática da Colisão, Velocidade Média e Frenagem' },
-              { name: 'Legislação de Trânsito', duration: 60, activityType: 'questões', topic: 'Multas Graves e Medidas Administrativas de Retenção' }
-            ]
-          },
-          {
-            dayOfWeek: 'Sexta-feira',
-            disciplines: [
-              { name: 'Raciocínio Lógico-Matemático', duration: 90, activityType: 'teoria', topic: 'Proposições Lógicas, Conectivos e Proposições Equivalentes' },
-              { name: 'Direitos Humanos', duration: 60, activityType: 'revisão', topic: 'Declaração Universal dos Direitos Humanos (DUDH) e Pacto de San José' }
-            ]
-          },
-          {
-            dayOfWeek: 'Sábado',
-            disciplines: [
-              { name: 'Legislação de Trânsito', duration: 120, activityType: 'simulado', topic: 'Simulado de Trânsito Integrado das Resoluções CONTRAN' }
-            ]
-          },
-          {
-            dayOfWeek: 'Domingo',
-            disciplines: [
-              { name: 'Revisão Geral', duration: 60, activityType: 'revisão', topic: 'Releitura ativa dos resumos e fechamento de metas estratégicas' }
-            ]
-          }
-        ],
-        monthly: [
-          { weekIndex: 1, theme: 'Imersão Normas de Circulação e Segurança no Trânsito', focusDisciplines: ['Legislação de Trânsito', 'Direito Constitucional'] },
-          { weekIndex: 2, theme: 'Velocidade, Colisões, Frenagem e Infração Penal', focusDisciplines: ['Legislação de Trânsito', 'Física', 'Direito Penal'] },
-          { weekIndex: 3, theme: 'Poder de Polícia, Agentes Públicos e Sintaxe', focusDisciplines: ['Direito Administrativo', 'Língua Portuguesa', 'Informática'] },
-          { weekIndex: 4, theme: 'Simulado Completo do Edital e Redação Dissertativa', focusDisciplines: ['Todas as Matérias'] }
-        ],
-        createdDate: new Date().toLocaleDateString('pt-BR'),
-        lastRecalibrated: new Date().toLocaleDateString('pt-BR')
-      };
-      setSchedule(defaultSchedule);
+      // Build a beautifully tailored fallback schedule dynamically based on onboarding choices
+      const dynamicFallback = generateClientAdaptiveSchedule(data);
+      setSchedule(dynamicFallback);
     }
     
     setCurrentTab('dashboard');
@@ -365,10 +504,31 @@ export default function App() {
     setMessages(updatedMessages);
 
     try {
+      const provider = localStorage.getItem('athena_ai_provider') || 'gemini';
+      const openaiKey = localStorage.getItem('athena_openai_api_key') || '';
+      const anthropicKey = localStorage.getItem('athena_anthropic_api_key') || '';
+      const geminiKey = localStorage.getItem('athena_gemini_api_key') || '';
+      const aiName = localStorage.getItem('athena_ai_name') || 'Athena AI';
+      const aiTone = localStorage.getItem('athena_ai_tone') || 'elite';
+      const aiStrictness = localStorage.getItem('athena_ai_strictness') || 'high';
+      const aiCustomInstruction = localStorage.getItem('athena_ai_custom_instruction') || '';
+
       const response = await fetch('/api/chat-athena', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: updatedMessages }),
+        body: JSON.stringify({ 
+          messages: updatedMessages,
+          onboarding,
+          progress,
+          provider,
+          openaiKey,
+          anthropicKey,
+          geminiKey,
+          aiName,
+          aiTone,
+          aiStrictness,
+          aiCustomInstruction
+        }),
       });
       const data = await response.json();
 
@@ -495,6 +655,13 @@ export default function App() {
             defaultActiveTab="contran"
           />
         );
+      case 'admin':
+        return (
+          <AdminPanel 
+            onBack={() => { setCurrentTab('dashboard'); playClickSound(); }}
+            theme={theme}
+          />
+        );
       default:
         return <div>Não implementado.</div>;
     }
@@ -526,6 +693,19 @@ export default function App() {
         </div>
         <Onboarding onComplete={handleOnboardingComplete} theme={theme} />
       </div>
+    );
+  }
+
+  if (currentTab === 'admin') {
+    return (
+      <AdminPanel 
+        onBack={() => {
+          setCurrentTab('dashboard');
+          playClickSound();
+        }}
+        theme={theme}
+        toggleTheme={toggleTheme}
+      />
     );
   }
 
@@ -651,7 +831,19 @@ export default function App() {
             ))}
           </nav>
 
-          <div className="pt-8 border-t border-slate-900 text-center select-text">
+          <div className="pt-4 border-t border-slate-900 text-center">
+            <span className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block pb-2 font-bold">Ambiente Gestor</span>
+            <button
+              onClick={() => { playClickSound(); setCurrentTab('admin'); }}
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-amber-500/5 hover:bg-amber-500 text-amber-500 hover:text-slate-950 border border-amber-500/10 hover:border-transparent rounded-xl text-xs font-extrabold tracking-wider font-mono uppercase transition-all cursor-pointer shadow-md"
+              id="desktop-sidebar-admin-trigger"
+            >
+              <Shield className="w-4 h-4 animate-pulse" />
+              <span>Painel Admin IA</span>
+            </button>
+          </div>
+
+          <div className="pt-6 border-t border-slate-900 text-center select-text">
             <span className="text-[10px] font-mono text-slate-600 block">Assinatura Ativa:</span>
             <span className="text-xs font-mono font-bold uppercase text-slate-400">
               {subscriptionPlan === 'free' ? 'Plano Gratuito Lite' : subscriptionPlan === 'essencial' ? 'Plano Essencial' : 'Athena Gold'}
@@ -696,6 +888,15 @@ export default function App() {
               </div>
 
               <div className="border-t border-slate-900 pt-4 space-y-3">
+                {/* Mobile Admin Trigger */}
+                <button
+                  onClick={() => { playClickSound(); setCurrentTab('admin'); setMobileMenuOpen(false); }}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-xl text-xs font-bold leading-none font-mono uppercase transition-all cursor-pointer"
+                >
+                  <Shield className="w-3.5 h-3.5 animate-pulse text-amber-500" />
+                  <span>Painel Admin IA</span>
+                </button>
+
                 <div className="flex items-center justify-around gap-2">
                   {/* Theme Switcher inside drawer */}
                   <button 
